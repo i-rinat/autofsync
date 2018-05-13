@@ -61,7 +61,7 @@ static const double g_target_latency_low = 0.9;
 
 #define get_mode()                                                             \
     ({                                                                         \
-        int mode;                                                              \
+        int mode = 0;                                                          \
         if (__OPEN_NEEDS_MODE(oflag)) {                                        \
             va_list a;                                                         \
             va_start(a, oflag);                                                \
