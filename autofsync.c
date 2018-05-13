@@ -75,11 +75,20 @@ struct file {
     int fd;
     size_t dirty;
     size_t dirty_limit;
+    dev_t device_id;
     UT_hash_handle hh;
 };
 
 static struct file *g_files = NULL;
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+
+struct device_dirty_limit {
+    dev_t device_id;
+    size_t dirty_limit;
+    UT_hash_handle hh;
+};
+
+static struct device_dirty_limit *g_device_dirty_limit = NULL;
 
 static bool real_entry_points_initialized = false;
 
@@ -101,6 +110,75 @@ initialize_real_entry_points(void)
     real_close = dlsym(RTLD_NEXT, "close");
 
     real_entry_points_initialized = true;
+}
+
+#define HASH_FIND_DEV_T(head, find_dev_t, out)                                 \
+    HASH_FIND(hh, head, find_dev_t, sizeof(dev_t), out)
+
+#define HASH_ADD_DEV_T(head, dev_t_field, add)                                 \
+    HASH_ADD(hh, head, dev_t_field, sizeof(dev_t), add)
+
+static size_t
+get_device_dirty_limit(dev_t device_id)
+{
+    struct device_dirty_limit *entry = NULL;
+
+    pthread_mutex_lock(&g_lock);
+    HASH_FIND_DEV_T(g_device_dirty_limit, &device_id, entry);
+    if (entry == NULL) {
+        entry = malloc(sizeof(*entry));
+        if (entry == NULL) {
+            pthread_mutex_unlock(&g_lock);
+            return (size_t)-1;
+        }
+
+        entry->device_id = device_id;
+        entry->dirty_limit = g_dirty_limit_initial;
+
+        HASH_ADD_DEV_T(g_device_dirty_limit, device_id, entry);
+    }
+
+    size_t dirty_limit = entry->dirty_limit;
+
+    pthread_mutex_unlock(&g_lock);
+    return dirty_limit;
+}
+
+static void
+set_device_dirty_limit(dev_t device_id, size_t dirty_limit)
+{
+    struct device_dirty_limit *entry = NULL;
+
+    pthread_mutex_lock(&g_lock);
+    HASH_FIND_DEV_T(g_device_dirty_limit, &device_id, entry);
+    if (entry == NULL) {
+        entry = malloc(sizeof(*entry));
+        if (entry == NULL) {
+            pthread_mutex_unlock(&g_lock);
+            return;
+        }
+
+        entry->device_id = device_id;
+        HASH_ADD_DEV_T(g_device_dirty_limit, device_id, entry);
+    }
+
+    entry->dirty_limit = dirty_limit;
+    pthread_mutex_unlock(&g_lock);
+}
+
+__attribute__((destructor)) static void
+destructor_clean_g_device_dirty_limit(void)
+{
+    struct device_dirty_limit *entry;
+    struct device_dirty_limit *tmp;
+
+    pthread_mutex_lock(&g_lock);
+    HASH_ITER(hh, g_device_dirty_limit, entry, tmp)
+    {
+        HASH_DEL(g_device_dirty_limit, entry);
+        free(entry);
+    }
+    pthread_mutex_unlock(&g_lock);
 }
 
 static size_t
@@ -125,8 +203,9 @@ account_opened_fd(int fd)
         return;
 
     new_file->fd = fd;
-    new_file->dirty_limit = g_dirty_limit_initial;
+    new_file->dirty_limit = get_device_dirty_limit(sb.st_dev);
     new_file->dirty = 0;
+    new_file->device_id = sb.st_dev;
 
     struct file *old_file = NULL;
     pthread_mutex_lock(&g_lock);
@@ -283,6 +362,8 @@ write_throttle(int fd, ssize_t bytes_written)
         a_file->dirty_limit = align_4k(a_file->dirty_limit);
         LOG("  increasing dirty_limit to %zu", a_file->dirty_limit);
     }
+
+    set_device_dirty_limit(a_file->device_id, a_file->dirty_limit);
 }
 
 WEAK_SYMBOL
