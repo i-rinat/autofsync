@@ -25,6 +25,7 @@
 #include "uthash.h"
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -78,6 +79,7 @@ struct file {
 };
 
 static struct file *g_files = NULL;
+static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static bool real_entry_points_initialized = false;
 
@@ -127,7 +129,9 @@ account_opened_fd(int fd)
     new_file->dirty = 0;
 
     struct file *old_file = NULL;
+    pthread_mutex_lock(&g_lock);
     HASH_REPLACE_INT(g_files, fd, new_file, old_file);
+    pthread_mutex_unlock(&g_lock);
 
     if (old_file != NULL) {
         LOG_("  unexpected old_file");
@@ -211,6 +215,7 @@ close(int fd)
     ensure_entry_points_initialized();
 
     struct file *a_file = NULL;
+    pthread_mutex_lock(&g_lock);
     HASH_FIND_INT(g_files, &fd, a_file);
     if (a_file) {
         HASH_DEL(g_files, a_file);
@@ -219,6 +224,7 @@ close(int fd)
     } else {
         LOG_("  mismatched close");
     }
+    pthread_mutex_unlock(&g_lock);
 
     return real_close(fd);
 }
@@ -227,7 +233,9 @@ static void
 write_throttle(int fd, ssize_t bytes_written)
 {
     struct file *a_file = NULL;
+    pthread_mutex_lock(&g_lock);
     HASH_FIND_INT(g_files, &fd, a_file);
+    pthread_mutex_unlock(&g_lock);
     if (a_file == NULL)
         return;
 
