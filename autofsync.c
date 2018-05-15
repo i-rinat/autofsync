@@ -257,7 +257,7 @@ int
 open(const char *fname, int oflag, ...)
 {
     int mode = get_mode();
-    LOG("open: fname=%s, oflag=%d, mode=%d", fname, oflag, mode);
+    LOG("%s: fname=%s, oflag=%d, mode=%d", __func__, fname, oflag, mode);
     ensure_entry_points_initialized();
     return do_open(real_open, fname, oflag, mode);
 }
@@ -316,7 +316,7 @@ int
 open64(const char *fname, int oflag, ...)
 {
     int mode = get_mode();
-    LOG("open64: fname=%s, oflag=%d, mode=%d", fname, oflag, mode);
+    LOG("%s: fname=%s, oflag=%d, mode=%d", __func__, fname, oflag, mode);
     ensure_entry_points_initialized();
     return do_open(real_open64, fname, oflag, mode);
 }
@@ -326,8 +326,8 @@ int
 openat(int atfd, const char *fname, int oflag, ...)
 {
     int mode = get_mode();
-    LOG("openat: atfd=%d, fname=%s, oflag=%d, mode=%d", atfd, fname, oflag,
-        mode);
+    LOG("%s: atfd=%d, fname=%s, oflag=%d, mode=%d", __func__, atfd, fname,
+        oflag, mode);
     ensure_entry_points_initialized();
     return do_openat(real_openat, atfd, fname, oflag, mode);
 }
@@ -337,8 +337,8 @@ int
 openat64(int atfd, const char *fname, int oflag, ...)
 {
     int mode = get_mode();
-    LOG("openat64: atfd=%d, fname=%s, oflag=%d, mode=%d", atfd, fname, oflag,
-        mode);
+    LOG("%s: atfd=%d, fname=%s, oflag=%d, mode=%d", __func__, atfd, fname,
+        oflag, mode);
     ensure_entry_points_initialized();
     return do_openat(real_openat64, atfd, fname, oflag, mode);
 }
@@ -347,7 +347,7 @@ WEAK_SYMBOL
 int
 close(int fd)
 {
-    LOG("close: fd = %d", fd);
+    LOG("%s: fd=%d", __func__, fd);
     ensure_entry_points_initialized();
 
     struct file *a_file = NULL;
@@ -429,7 +429,7 @@ WEAK_SYMBOL
 ssize_t
 write(int fd, const void *buf, size_t count)
 {
-    LOG("write: fd = %d, buf = %p, count = %zu", fd, buf, count);
+    LOG("%s: fd=%d, buf=%p, count=%zu", __func__, fd, buf, count);
     ensure_entry_points_initialized();
 
     const ssize_t bytes_written = real_write(fd, buf, count);
