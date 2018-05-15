@@ -224,6 +224,7 @@ do_open(int (*open_func)(const char *fname, int oflag, ...), const char *fname,
 
 {
     int fd = open_func(fname, oflag, mode);
+    LOG("  open_func in do_open returns %d", fd);
     if (fd == -1)
         return -1;
 
@@ -237,6 +238,7 @@ do_openat(int (*open_func)(int atfd, const char *fname, int oflag, ...),
 
 {
     int fd = open_func(atfd, fname, oflag, mode);
+    LOG("  open_func in do_openat returns %d", fd);
     if (fd == -1)
         return -1;
 
@@ -315,8 +317,10 @@ write_throttle(int fd, ssize_t bytes_written)
     pthread_mutex_lock(&g_lock);
     HASH_FIND_INT(g_files, &fd, a_file);
     pthread_mutex_unlock(&g_lock);
-    if (a_file == NULL)
+    if (a_file == NULL) {
+        LOG("  non-tracked file %d", fd);
         return;
+    }
 
     a_file->dirty += bytes_written;
     LOG("  dirty = %zu, dirty_limit = %zu", a_file->dirty, a_file->dirty_limit);
