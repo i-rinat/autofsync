@@ -98,6 +98,10 @@ static int (*real_openat)(int atfd, const char *fname, int oflag, ...);
 static int (*real_openat64)(int atfd, const char *fname, int oflag, ...);
 static int (*real_close)(int);
 static ssize_t (*real_write)(int, const void *, ssize_t);
+static int (*real_mkstemp)(char *template);
+static int (*real_mkostemp)(char *template, int flags);
+static int (*real_mkstemps)(char *template, int suffixlen);
+static int (*real_mkostemps)(char *template, int suffixlen, int flags);
 
 static void
 initialize_real_entry_points(void)
@@ -108,6 +112,10 @@ initialize_real_entry_points(void)
     real_openat64 = dlsym(RTLD_NEXT, "openat64");
     real_write = dlsym(RTLD_NEXT, "write");
     real_close = dlsym(RTLD_NEXT, "close");
+    real_mkstemp = dlsym(RTLD_NEXT, "mkstemp");
+    real_mkostemp = dlsym(RTLD_NEXT, "mkostemp");
+    real_mkstemps = dlsym(RTLD_NEXT, "mkstemps");
+    real_mkostemps = dlsym(RTLD_NEXT, "mkostemps");
 
     real_entry_points_initialized = true;
 }
@@ -252,6 +260,55 @@ open(const char *fname, int oflag, ...)
     LOG("open: fname=%s, oflag=%d, mode=%d", fname, oflag, mode);
     ensure_entry_points_initialized();
     return do_open(real_open, fname, oflag, mode);
+}
+
+WEAK_SYMBOL
+int
+mkstemp(char *template)
+{
+    LOG("%s: template=%s", __func__, template);
+    ensure_entry_points_initialized();
+    int fd = real_mkstemp(template);
+    if (fd != -1)
+        account_opened_fd(fd);
+    return fd;
+}
+
+WEAK_SYMBOL
+int
+mkostemp(char *template, int flags)
+{
+    LOG("%s: template=%s, flags=%d", __func__, template, flags);
+    ensure_entry_points_initialized();
+    int fd = real_mkostemp(template, flags);
+    if (fd != -1)
+        account_opened_fd(fd);
+    return fd;
+}
+
+WEAK_SYMBOL
+int
+mkstemps(char *template, int suffixlen)
+{
+    LOG("%s: template=%s, suffixlen=%d", __func__, template, suffixlen);
+    ensure_entry_points_initialized();
+    int fd = real_mkstemps(template, suffixlen);
+    if (fd != -1)
+        account_opened_fd(fd);
+    return fd;
+}
+
+WEAK_SYMBOL
+int
+mkostemps(char *template, int suffixlen, int flags)
+{
+    LOG("%s: template=%s, suffixlen=%d, flags=%d", __func__, template,
+        suffixlen, flags);
+    ensure_entry_points_initialized();
+    int fd = real_mkostemps(template, suffixlen, flags);
+    if (fd != -1)
+        account_opened_fd(fd);
+    return fd;
 }
 
 WEAK_SYMBOL
