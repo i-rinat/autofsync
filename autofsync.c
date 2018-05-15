@@ -225,10 +225,9 @@ do_open(int (*open_func)(const char *fname, int oflag, ...), const char *fname,
 {
     int fd = open_func(fname, oflag, mode);
     LOG("  open_func in do_open returns %d", fd);
-    if (fd == -1)
-        return -1;
+    if (fd != -1)
+        account_opened_fd(fd);
 
-    account_opened_fd(fd);
     return fd;
 }
 
@@ -239,10 +238,9 @@ do_openat(int (*open_func)(int atfd, const char *fname, int oflag, ...),
 {
     int fd = open_func(atfd, fname, oflag, mode);
     LOG("  open_func in do_openat returns %d", fd);
-    if (fd == -1)
-        return -1;
+    if (fd != -1)
+        account_opened_fd(fd);
 
-    account_opened_fd(fd);
     return fd;
 }
 
