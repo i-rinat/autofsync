@@ -42,8 +42,8 @@ static const double g_target_latency_high = 1.1;
 static const double g_target_latency_low = 0.9;
 
 #if 0
-#define LOG(fmt, ...) printf("autofsync: " fmt "\n", __VA_ARGS__)
-#define LOG_(fmt) printf("autofsync: " fmt "\n")
+#define LOG(fmt, ...) fprintf(stderr, "autofsync: " fmt "\n", __VA_ARGS__)
+#define LOG_(fmt) fprintf(stderr, "autofsync: " fmt "\n")
 #else
 #define LOG(...)
 #define LOG_(...)
