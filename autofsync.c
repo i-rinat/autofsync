@@ -226,6 +226,24 @@ account_opened_fd(int fd)
     }
 }
 
+static void
+account_closed_fd(int fd, int ignore_wrong_fd)
+{
+    struct file *a_file = NULL;
+    pthread_mutex_lock(&g_lock);
+    HASH_FIND_INT(g_files, &fd, a_file);
+    if (a_file) {
+        HASH_DEL(g_files, a_file);
+        free(a_file);
+
+    } else {
+        if (!ignore_wrong_fd) {
+            LOG_("  mismatched close");
+        }
+    }
+    pthread_mutex_unlock(&g_lock);
+}
+
 static int
 do_open(int (*open_func)(const char *fname, int oflag, ...), const char *fname,
         int oflag, int mode)
@@ -349,19 +367,7 @@ close(int fd)
 {
     LOG("%s: fd=%d", __func__, fd);
     ensure_entry_points_initialized();
-
-    struct file *a_file = NULL;
-    pthread_mutex_lock(&g_lock);
-    HASH_FIND_INT(g_files, &fd, a_file);
-    if (a_file) {
-        HASH_DEL(g_files, a_file);
-        free(a_file);
-
-    } else {
-        LOG_("  mismatched close");
-    }
-    pthread_mutex_unlock(&g_lock);
-
+    account_closed_fd(fd, 0);
     return real_close(fd);
 }
 
