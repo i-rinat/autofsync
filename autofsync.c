@@ -102,6 +102,9 @@ static int (*real_mkstemp)(char *template);
 static int (*real_mkostemp)(char *template, int flags);
 static int (*real_mkstemps)(char *template, int suffixlen);
 static int (*real_mkostemps)(char *template, int suffixlen, int flags);
+static int (*real_dup)(int oldfd);
+static int (*real_dup2)(int oldfd, int newfd);
+static int (*real_dup3)(int oldfd, int newfd, int flags);
 
 static void
 initialize_real_entry_points(void)
@@ -116,6 +119,9 @@ initialize_real_entry_points(void)
     real_mkostemp = dlsym(RTLD_NEXT, "mkostemp");
     real_mkstemps = dlsym(RTLD_NEXT, "mkstemps");
     real_mkostemps = dlsym(RTLD_NEXT, "mkostemps");
+    real_dup = dlsym(RTLD_NEXT, "dup");
+    real_dup2 = dlsym(RTLD_NEXT, "dup2");
+    real_dup3 = dlsym(RTLD_NEXT, "dup3");
 
     real_entry_points_initialized = true;
 }
@@ -444,4 +450,50 @@ write(int fd, const void *buf, size_t count)
 
     write_throttle(fd, bytes_written);
     return bytes_written;
+}
+
+WEAK_SYMBOL
+int
+dup(int oldfd)
+{
+    LOG("%s: oldfd=%d", __func__, oldfd);
+    ensure_entry_points_initialized();
+
+    const int newfd = real_dup(oldfd);
+    if (newfd != -1)
+        account_opened_fd(newfd);
+
+    return newfd;
+}
+
+WEAK_SYMBOL
+int
+dup2(int oldfd, int newfd)
+{
+    LOG("%s: oldfd=%d, newfd=%d", __func__, oldfd, newfd);
+    ensure_entry_points_initialized();
+
+    const int ret = real_dup2(oldfd, newfd);
+    if (ret != -1) {
+        account_closed_fd(newfd, 1);
+        account_opened_fd(newfd);
+    }
+
+    return ret;
+}
+
+WEAK_SYMBOL
+int
+dup3(int oldfd, int newfd, int flags)
+{
+    LOG("%s: oldfd=%d, newfd=%d, flags=%d", __func__, oldfd, newfd, flags);
+    ensure_entry_points_initialized();
+
+    const int ret = real_dup3(oldfd, newfd, flags);
+    if (ret != -1) {
+        account_closed_fd(newfd, 1);
+        account_opened_fd(newfd);
+    }
+
+    return ret;
 }
